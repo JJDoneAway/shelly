@@ -1,8 +1,8 @@
 // path for http call
 let urlOpen = "api/open"
 let urlClose = "api/close"
-let motorTime = 53 * 1000 //in ms
-let waitTime = 30 * 60 * 1000 //in ms
+let motorTime = 1 * 03 * 1000 //in ms
+let waitTime = 1 * 05 * 1000 //in ms
 
 let shellyClose = {
    id: 0, // ID of Relais, to close window
@@ -22,6 +22,7 @@ function open() {
       return
    }
    runningOpen = true
+   print("start opening")
 
    stopClosing()
 
@@ -31,6 +32,7 @@ function open() {
    Timer.set(motorTime, false, function () {
       shellyOpen.on = false
       Shelly.call("Switch.Set", shellyOpen)
+      print("Stop Opening")
       scheduleClosing()
       runningOpen = false
    })
@@ -51,7 +53,7 @@ function close() {
    shellyClose.on = true
    Shelly.call("Switch.Set", shellyClose)
    //After some seconds we stop the motor again
-   Timer.set(motorTime, false, function () {
+   Timer.set(motorTime + 1000, false, function () {
       shellyClose.on = false
       Shelly.call("Switch.Set", shellyClose)
       runningClose = false
@@ -74,7 +76,9 @@ function stopOpening() {
 
 // if the windo is open it must be closed after some time again
 function scheduleClosing() {
+   print("Schedule Timer on")
    Timer.set(waitTime, false, function () {
+      print("Fire close")
       close()
    })
 }
@@ -95,24 +99,30 @@ HTTPServer.registerEndpoint(urlClose, function (request, response) {
    response.send() // Senden der Antwort an den Client
 })
 
+let openButtonWasPressed = false
+let closeButtonWasPressed = false
+
 // manage pressed buttons
 Shelly.addEventHandler(
    function (event) {
-      // open button is released
-      if (event.component == "input:1" && event.info.state == false) {
+      // open button is pressed
+      if (Shelly.getComponentStatus("input:1").state == true) {
+         openButtonWasPressed = true
+      }
+      // open button is not pressed any more
+      if (Shelly.getComponentStatus("input:1").state == false && openButtonWasPressed == true) {
          open()
+         openButtonWasPressed = false
       }
-      // open button is pressed, we must stop potential closings to avoid motor demages
-      if (event.component == "input:1" && event.info.state == true) {
-         stopClosing()
+
+      // close button is pressed
+      if (Shelly.getComponentStatus("input:0").state == true) {
+         closeButtonWasPressed = true
       }
-      // close button is released
-      if (event.component == "input:0" && event.info.state == false) {
+      // close button is not pressed any more
+      if (Shelly.getComponentStatus("input:0").state == false && closeButtonWasPressed == true) {
          close()
-      }
-      // close button is pressed, we must stop potential closings to avoid motor demages
-      if (event.component == "input:0" && event.info.state == true) {
-         stopOpening()
+         closeButtonWasPressed = false
       }
    }
 )
